@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Web Proxy Viewer</title>
+  <!-- Tailwind CSSをCDNから直接読み込み (ビルド不要) -->
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-slate-50 font-sans min-h-screen flex flex-col">
+
+  <header class="bg-white border-b border-slate-200 px-4 md:px-6 py-4 shadow-sm z-10 flex flex-col md:flex-row items-center justify-between gap-4">
+    <h1 class="text-xl font-bold tracking-tight text-slate-800 flex items-center gap-2">
+      <!-- Globe Icon SVG -->
+      <svg class="w-6 h-6 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+      Web Proxy Viewer
+    </h1>
+    <form id="proxyForm" class="w-full md:max-w-2xl flex gap-2">
+      <div class="relative flex-1">
+        <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+          <!-- Link Icon SVG -->
+          <svg class="h-5 w-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"></path></svg>
+        </div>
+        <input
+          type="text"
+          id="urlInput"
+          class="block w-full pl-10 pr-3 py-2 border border-slate-300 rounded-lg leading-5 bg-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm transition-all"
+          placeholder="https://example.com"
+          required
+        />
+      </div>
+      <button
+        type="submit"
+        id="submitBtn"
+        class="flex items-center justify-center bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-2 rounded-lg font-medium transition-colors disabled:opacity-70 min-w-[100px]"
+      >
+        <span id="btnText">Fetch code</span>
+        <svg id="loadingIcon" class="hidden w-5 h-5 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+      </button>
+    </form>
+  </header>
+
+  <main class="flex-1 flex flex-col container mx-auto p-4 md:p-6 h-[calc(100vh-80px)]">
+    
+    <!-- エラー画面 -->
+    <div id="errorState" class="hidden bg-red-50 border border-red-200 text-red-900 px-6 py-12 rounded-2xl w-full max-w-2xl mx-auto mt-12 flex-col items-center justify-center text-center shadow-sm">
+      <svg class="w-12 h-12 text-red-500 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
+      <h2 class="text-lg font-bold mb-2">Target Unavailable</h2>
+      <p id="errorMessage" class="text-red-700 leading-relaxed font-medium"></p>
+    </div>
+
+    <!-- ホーム画面（プレースホルダー） -->
+    <div id="emptyState" class="flex-1 flex flex-col items-center justify-center text-slate-500 p-8 text-center max-w-lg mx-auto">
+      <div class="bg-slate-100 p-4 rounded-full mb-6 relative">
+        <svg class="w-8 h-8 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+      </div>
+      <h2 class="text-2xl font-bold text-slate-800 mb-3 tracking-tight">Access Content Safely</h2>
+      <p class="text-slate-600 mb-8 leading-relaxed">
+        リンクを入力すると、プロキシ経由で生のHTMLコンテンツを取得し、Iframe内部に安全に隔離された状態でレンダリングします。特定の制約を回避したり、単純なサイトのプレビューに使用できます。
+      </p>
+      
+      <div class="text-xs bg-amber-50 text-amber-800 border-l-4 border-amber-500 p-4 rounded text-left shadow-sm">
+        <strong class="block mb-1 text-sm">Note on Execution</strong>
+        シンプルなウェブサイトやスクリプトは動作します。ただし、強力なブラウザアクセス制限（CORS）が掛かっている大規模アプリや動画サイト等では、動作しない場合があります。
+      </div>
+    </div>
+
+    <!-- Iframe表示用コンテナ -->
+    <div id="iframeContainer" class="hidden flex-1 bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden relative flex-col h-full w-full">
+      <iframe
+        id="proxyIframe"
+        title="proxy-view"
+        class="w-full h-full border-none flex-1 bg-white"
+        sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
+      ></iframe>
+    </div>
+
+  </main>
+
+  <script>
+    const form = document.getElementById('proxyForm');
+    const input = document.getElementById('urlInput');
+    const btnText = document.getElementById('btnText');
+    const loadingIcon = document.getElementById('loadingIcon');
+    const submitBtn = document.getElementById('submitBtn');
+    
+    const errorState = document.getElementById('errorState');
+    const errorMessage = document.getElementById('errorMessage');
+    const emptyState = document.getElementById('emptyState');
+    const iframeContainer = document.getElementById('iframeContainer');
+    const proxyIframe = document.getElementById('proxyIframe');
+
+    // ローディング中かの切り替え処理
+    function setLoading(isLoading) {
+      if (isLoading) {
+        submitBtn.disabled = true;
+        btnText.classList.add('hidden');
+        loadingIcon.classList.remove('hidden');
+      } else {
+        submitBtn.disabled = false;
+        btnText.classList.remove('hidden');
+        loadingIcon.classList.add('hidden');
+      }
+    }
+
+    // どの画面を表示するかの切り替え処理
+    function showState(state) {
+      errorState.classList.add('hidden');
+      errorState.classList.remove('flex');
+      
+      emptyState.classList.add('hidden');
+      emptyState.classList.remove('flex');
+      
+      iframeContainer.classList.add('hidden');
+      iframeContainer.classList.remove('flex');
+
+      if (state === 'error') {
+        errorState.classList.remove('hidden');
+        errorState.classList.add('flex');
+      } else if (state === 'empty') {
+        emptyState.classList.remove('hidden');
+        emptyState.classList.add('flex');
+      } else if (state === 'iframe') {
+        iframeContainer.classList.remove('hidden');
+        iframeContainer.classList.add('flex');
+      }
+    }
+
+    // フォーム送信時の処理
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const url = input.value.trim();
+      if (!url) return;
+
+      let formattedUrl = url;
+      if (!/^https?:\/\//i.test(formattedUrl)) {
+        formattedUrl = 'https://' + formattedUrl;
+        input.value = formattedUrl;
+      }
+
+      setLoading(true);
+      showState('empty');
+
+      try {
+        // allorigins.winという無料のCORSプロキシAPIを利用
+        const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(formattedUrl)}`;
+        const response = await fetch(proxyUrl);
+        
+        if (!response.ok) {
+          throw new Error('プロキシ接続に失敗しました');
+        }
+
+        const data = await response.json();
+        
+        if (!data.contents) {
+          throw new Error('コンテンツが存在しません');
+        }
+
+        let html = data.contents;
+        
+        // 相対パス(例えば <img src="/logo.png"> )などを正常に読み込めるようbaseタグを挿入
+        const baseTag = `<base href="${formattedUrl}">`;
+        if (html.toLowerCase().includes('<head>')) {
+          html = html.replace(/<head>/i, `<head>\n    ${baseTag}`);
+        } else {
+          html = `${baseTag}\n${html}`;
+        }
+        
+        // IframeにHTMLのテキストを挿入
+        proxyIframe.srcdoc = html;
+        showState('iframe');
+      } catch (err) {
+        errorMessage.textContent = err.message || 'ウェブサイトへの接続に失敗しました';
+        showState('error');
+      } finally {
+        setLoading(false);
+      }
+    });
+  </script>
+</body>
+</html>
